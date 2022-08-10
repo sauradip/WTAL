@@ -129,6 +129,7 @@ class BaS_Net(nn.Module):
         feat = feat.permute(0,2,1)
         B,T,C = feat.size()
         cl_names = list(config.class_dict.values())
+        # print(cl_names)
         
         act_prompt = self.get_prompt(cl_names)
         texts = self.tokenizer(act_prompt, padding=True, return_tensors="pt").to('cuda')
@@ -137,15 +138,19 @@ class BaS_Net(nn.Module):
 
         proj_feat = self.proj(feat) ## to make same dim as text
         B,K,C = text_emb.size()
-        text_cls = text_emb
+        text_cls = torch.clamp(text_emb,min=1e-4)
         text_cls = text_cls / text_cls.norm(dim=2, keepdim=True)
         text = text_emb / text_emb.norm(dim=2, keepdim=True)
         visual = torch.clamp(proj_feat,min=1e-4)
         visual_cls = visual.mean(dim=2)
         visual = visual / visual.norm(dim=1, keepdim=True)
+        # visual = torch.clamp(visual,min=1e-4)
         visual_cls = visual_cls / visual_cls.norm(dim=1, keepdim=True)
+        # visual_cls = torch.clamp(visual_cls,min=1e-4)
         score_cls = torch.einsum('bc,bkc->bk', visual_cls, text_cls) * 100
         score_map = torch.einsum('bct,bkc->bkt', visual, text) * 100
+
+        score_map = torch.clamp(score_map,min=1e-4)
 
         return score_map, score_cls
 
